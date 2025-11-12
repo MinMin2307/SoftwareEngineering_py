@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.pyc
+
+# Virtuelle Umgebung
+venv/
+.venv/
+
+# SQLite Datenbank
+*.db
+
+# Editor / Systemdateien
+.DS_Store
+.idea/
+.vscode/
