@@ -1,7 +1,7 @@
 import unittest
 
-from User import User
-from Post import Post
+from model.user import User
+from model.post import Post
 
 
 class TestUser(unittest.TestCase):

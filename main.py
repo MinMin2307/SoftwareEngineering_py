@@ -1,5 +1,5 @@
-from User import User
-from database_sm import save_user, save_post, cur
+from model.user import User
+from database.database_sm import save_user, save_post, cur
 
 u1 = User("Mine", "Sungur")
 u2 = User("Tugba", "Sahin")

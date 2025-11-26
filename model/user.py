@@ -1,4 +1,4 @@
-from Post import Post
+from model.post import Post
 
 
 class User:

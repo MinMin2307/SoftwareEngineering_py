@@ -2,8 +2,8 @@ import unittest
 import importlib
 import sqlite3
 
-import database_sm
-from User import User
+from database import database_sm
+from model.user import User
 
 
 class TestDatabase(unittest.TestCase):
