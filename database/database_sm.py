@@ -34,3 +34,26 @@ def save_post(post):
                 (post.image, post.text, post.user.id))
     post.id = cur.lastrowid
 
+def get_postById(id: int ):
+    post_row = cur.execute("SELECT * FROM post WHERE id = ?", (id,)).fetchone()
+    return post_row
+
+def get_userById(id: int):
+    user_row = cur.execute("SELECT * FROM user WHERE id = ?", (id,)).fetchone()
+    return user_row
+
+def get_postByUserId(user_id: int):
+    post_userRow = cur.execute("SELECT * FROM post WHERE user_id = ?", (user_id,)).fetchall()
+    return post_userRow
+
+def search_postsByText(text: str):
+    text_rows = cur.execute(
+        "SELECT id, image, text, user_id FROM post WHERE text LIKE ?",
+        (f"%{text}%",)
+    ).fetchall()
+    return text_rows
+
+
+
+
+
