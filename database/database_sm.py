@@ -24,19 +24,23 @@ CREATE TABLE IF NOT EXISTS post(
     FOREIGN KEY(user_id) REFERENCES user(id)
 )""")
 
-def save_user(user):
-    cur.execute("INSERT INTO user(first_name,last_name) VALUES(?,?)",
-                (user.first_name, user.last_name))
-    user.id = cur.lastrowid
+def save_user(first_name: str, last_name: str) -> int:
+    cur.execute( "INSERT INTO user(first_name, last_name) VALUES(?, ?)", (first_name, last_name))
+    return cur.lastrowid
 
-def save_post(post):
+def save_post(image:str, text:str, user_id: int) -> int:
     cur.execute("INSERT INTO post(image,text,user_id) VALUES(?,?,?)",
-                (post.image, post.text, post.user.id))
-    post.id = cur.lastrowid
+                (image, text, user_id))
+    return cur.lastrowid
 
 def get_postById(id: int ):
     post_row = cur.execute("SELECT * FROM post WHERE id = ?", (id,)).fetchone()
     return post_row
+
+def get_allPosts():
+    post_allRows = cur.execute(
+        "SELECT id, image, text, user_id FROM post").fetchall()
+    return post_allRows
 
 def get_userById(id: int):
     user_row = cur.execute("SELECT * FROM user WHERE id = ?", (id,)).fetchone()
@@ -48,9 +52,7 @@ def get_postByUserId(user_id: int):
 
 def search_postsByText(text: str):
     text_rows = cur.execute(
-        "SELECT id, image, text, user_id FROM post WHERE text LIKE ?",
-        (f"%{text}%",)
-    ).fetchall()
+        "SELECT id, image, text, user_id FROM post WHERE text LIKE ?",(f"%{text}%",)).fetchall()
     return text_rows
 
 
