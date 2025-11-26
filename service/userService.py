@@ -1,6 +1,5 @@
 from dto.RequesDTO import CreateUserDTO
 from dto.ResponseDTO import UserResponseDTO
-from model.user import User
 from database.database_sm import save_user
 
 def createUser(data: CreateUserDTO) -> UserResponseDTO:

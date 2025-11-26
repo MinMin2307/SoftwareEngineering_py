@@ -1,6 +1,6 @@
 import sqlite3
 
-con = sqlite3.connect('database.db', isolation_level=None )
+con = sqlite3.connect('database.db', check_same_thread=False )
 cur = con.cursor()
 
 cur.execute("DROP TABLE IF EXISTS post")

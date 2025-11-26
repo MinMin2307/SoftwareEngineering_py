@@ -1,7 +1,6 @@
 from database.database_sm import save_post, get_postById, get_userById, get_postByUserId, search_postsByText, get_allPosts
 from dto.RequesDTO import CreatePostDTO
 from dto.ResponseDTO import PostResponseDTO, UserResponseDTO
-from model.post import Post
 
 
 def createPost(data: CreatePostDTO) -> PostResponseDTO:
