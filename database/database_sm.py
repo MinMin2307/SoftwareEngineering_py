@@ -55,6 +55,13 @@ def search_postsByText(text: str):
         "SELECT id, image, text, user_id FROM post WHERE text LIKE ?",(f"%{text}%",)).fetchall()
     return text_rows
 
+def get_userByName(first_name: str, last_name: str):
+    user_row = cur.execute(
+        "SELECT * FROM user WHERE first_name = ? AND last_name = ?",
+        (first_name, last_name)
+    ).fetchone()
+    return user_row
+
 
 
 

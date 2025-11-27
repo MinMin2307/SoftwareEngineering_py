@@ -1,4 +1,4 @@
-from database.database_sm import save_post, get_postById, get_userById, get_postByUserId, search_postsByText, get_allPosts
+from database.database_sm import save_post, get_postById, get_userById, get_postByUserId, search_postsByText, get_allPosts, get_userByName
 from dto.RequesDTO import CreatePostDTO
 from dto.ResponseDTO import PostResponseDTO, UserResponseDTO
 
@@ -63,6 +63,24 @@ def searchPostByText(word: str) -> list[PostResponseDTO]:
         )
         for post in posts
     ]
+
+def getPostByUserName(first_name: str, last_name: str) -> UserResponseDTO:
+    user = get_userByName(first_name, last_name)
+    posts = get_postByUserId(user[0])
+    postDTO = [PostResponseDTO(
+        id=post[0],
+        image=post[1],
+        text=post[2],
+        user_id=post[3]
+        )
+        for post in posts
+    ]
+    return UserResponseDTO(
+        id=user[0],
+        first_name=user[1],
+        last_name=user[2],
+        posts=postDTO
+    )
 
 
 

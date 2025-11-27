@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <title>Posts App</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 20px auto; }
+    h1 { text-align: center; }
+    form, section { margin-bottom: 20px; padding: 10px; border: 1px solid #ccc; border-radius: 4px; }
+    label { display: block; margin: 6px 0; }
+    input[type="text"], textarea { width: 100%; padding: 6px; box-sizing: border-box; }
+    button { margin-top: 8px; padding: 6px 12px; }
+    .post { border-bottom: 1px solid #ddd; padding: 8px 0; }
+    .post:last-child { border-bottom: none; }
+    .post-header { font-weight: bold; }
+    .post-user { color: #555; font-size: 0.9em; }
+  </style>
+</head>
+<body>
+  <h1>Posts App</h1>
+
+  <!-- a. Submit a post -->
+  <section>
+    <h2>Beitrag erstellen</h2>
+    <form id="post-form">
+      <label>
+        Vorname:
+        <input type="text" id="firstName" required />
+      </label>
+      <label>
+        Nachname:
+        <input type="text" id="lastName" required />
+      </label>
+      <label>
+        Bild-URL (optional):
+        <input type="text" id="image" />
+      </label>
+      <label>
+        Text:
+        <textarea id="text" rows="4" required></textarea>
+      </label>
+      <button type="submit">Absenden</button>
+    </form>
+  </section>
+
+  <!-- c. Find posts from one user (by name) -->
+  <section>
+    <h2>Beiträge eines Benutzers finden</h2>
+    <label>
+      Vorname:
+      <input type="text" id="searchFirstName" placeholder="Vorname" />
+    </label>
+    <label>
+      Nachname:
+      <input type="text" id="searchLastName" placeholder="Nachname" />
+    </label>
+    <button id="searchButton">Suchen</button>
+    <button id="clearSearch">Alle anzeigen</button>
+  </section>
+
+  <!-- b. List all posts -->
+  <section>
+    <h2 id="posts-title">Alle Beiträge</h2>
+    <div id="posts-container"></div>
+  </section>
+
+  <script>
+    const API_BASE = 'http://127.0.0.1:8000';
+
+    const form = document.getElementById('post-form');
+    const postsContainer = document.getElementById('posts-container');
+    const postsTitle = document.getElementById('posts-title');
+    const searchFirstNameInput = document.getElementById('searchFirstName');
+    const searchLastNameInput = document.getElementById('searchLastName');
+    const searchButton = document.getElementById('searchButton');
+    const clearButton = document.getElementById('clearSearch');
+
+    function renderPosts(list, subtitle = 'Alle Beiträge') {
+      postsTitle.textContent = subtitle;
+      postsContainer.innerHTML = '';
+      if (!list || list.length === 0) {
+        postsContainer.textContent = 'Keine Beiträge gefunden.';
+        return;
+      }
+      list.forEach(post => {
+        const div = document.createElement('div');
+        div.className = 'post';
+        const imageHtml = post.image
+          ? `<div><img src="${post.image}" alt="Bild" style="max-width: 100%; max-height: 200px;" /></div>`
+          : '';
+        div.innerHTML = `
+          <div class="post-header">Post #${post.id}</div>
+          <div class="post-user">User-ID: ${post.user_id}</div>
+          <div class="post-content">${post.text}</div>
+          ${imageHtml}
+        `;
+        postsContainer.appendChild(div);
+      });
+    }
+
+    async function loadAllPosts() {
+      try {
+        const response = await fetch(`${API_BASE}/posts`);
+        if (!response.ok) throw new Error();
+        const posts = await response.json();
+        renderPosts(posts, 'Alle Beiträge');
+      } catch {
+        postsContainer.textContent = 'Fehler beim Laden der Beiträge.';
+      }
+    }
+
+    // a. Submit a post: 1) create user, 2) create post
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const firstName = document.getElementById('firstName').value.trim();
+      const lastName = document.getElementById('lastName').value.trim();
+      const image = document.getElementById('image').value.trim();
+      const text = document.getElementById('text').value.trim();
+      if (!firstName || !lastName || !text) return;
+
+      try {
+        const userResponse = await fetch(`${API_BASE}/user`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ first_name: firstName, last_name: lastName })
+        });
+        if (!userResponse.ok) throw new Error();
+        const user = await userResponse.json();
+
+        const postResponse = await fetch(`${API_BASE}/post`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            image: image || '',
+            text: text,
+            user_id: user.id
+          })
+        });
+        if (!postResponse.ok) throw new Error();
+
+        form.reset();
+        await loadAllPosts();
+      } catch {
+        alert('Fehler beim Absenden des Beitrags.');
+      }
+    });
+
+    // c. Find posts from one user by name
+    searchButton.addEventListener('click', async () => {
+      const firstName = searchFirstNameInput.value.trim();
+      const lastName = searchLastNameInput.value.trim();
+      if (!firstName || !lastName) {
+        await loadAllPosts();
+        return;
+      }
+      try {
+        const params = new URLSearchParams({
+          first_name: firstName,
+          last_name: lastName
+        });
+        const response = await fetch(`${API_BASE}/user/by-name?${params.toString()}`);
+        if (!response.ok) throw new Error();
+        const user = await response.json();
+        renderPosts(
+          user.posts,
+          `Beiträge von "${user.first_name} ${user.last_name}" (ID: ${user.id})`
+        );
+      } catch {
+        postsContainer.textContent = 'Fehler beim Laden der Benutzer-Beiträge.';
+      }
+    });
+
+    clearButton.addEventListener('click', async () => {
+      searchFirstNameInput.value = '';
+      searchLastNameInput.value = '';
+      await loadAllPosts();
+    });
+
+    // initial load
+    loadAllPosts();
+  </script>
+</body>
+</html>
+
