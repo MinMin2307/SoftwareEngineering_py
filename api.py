@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-
+from fastapi.responses import FileResponse
 from dto.RequesDTO import CreateUserDTO, CreatePostDTO
 from dto.ResponseDTO import UserResponseDTO, PostResponseDTO
 from service.postService import (
@@ -23,6 +23,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.get("/")
+def read_index():
+    return FileResponse("index.html")  # path must be correct
 
 @app.post("/user", response_model=UserResponseDTO)
 def create_UserPoint(dto: CreateUserDTO):
