@@ -25,7 +25,7 @@ app.add_middleware(
 
 @app.get("/")
 def read_index():
-    return FileResponse("index.html")  # path must be correct
+    return FileResponse("index.html")
 
 @app.post("/user", response_model=UserResponseDTO)
 def create_UserPoint(dto: CreateUserDTO):
