@@ -55,13 +55,10 @@ def get_UserByNamePoint(first_name: str, last_name: str):
     user = getPostByUserName(first_name, last_name)
     return user
 
-@app.get("/user/{id}", response_model=UserResponseDTO)
+@app.get("/user/{id:int}", response_model=UserResponseDTO)
 def get_UserByIdPoint(id: int):
     user = getPostByUserId(id)
     return user
-
-
-
 
 @app.get("/posts/search", response_model=list[PostResponseDTO])
 def get_PostByTextPoint(text: str):
