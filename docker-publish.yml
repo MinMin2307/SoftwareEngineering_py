@@ -7,7 +7,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ format('ghcr.io/{0}', github.repository) }}
+  IMAGE_NAME: ghcr.io/minmin2307/softwareengineering_py
 
 jobs:
   test:
@@ -55,7 +55,7 @@ jobs:
           context: .
           push: true
           tags: |
-            ${{ format('{0}:{1}', toLower(env.IMAGE_NAME), github.sha) }}
+            ${{ env.IMAGE_NAME }}:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -63,5 +63,5 @@ jobs:
         if: github.ref == 'refs/heads/main'
         run: |
           docker buildx imagetools create \
-            -t ${{ format('{0}:{1}', toLower(env.IMAGE_NAME), 'latest') }} \
-            ${{ format('{0}:{1}', toLower(env.IMAGE_NAME), github.sha) }}
+            -t ${{ env.IMAGE_NAME }}:latest \
+            ${{ env.IMAGE_NAME }}:${{ github.sha }}
