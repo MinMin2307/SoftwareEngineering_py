@@ -50,6 +50,10 @@ def get_PostByIdPoint(id: int):
     post = getPostById(id)
     return post
 
+@app.get("/user/by-name", response_model=UserResponseDTO)
+def get_UserByNamePoint(first_name: str, last_name: str):
+    user = getPostByUserName(first_name, last_name)
+    return user
 
 @app.get("/user/{id}", response_model=UserResponseDTO)
 def get_UserByIdPoint(id: int):
@@ -57,10 +61,6 @@ def get_UserByIdPoint(id: int):
     return user
 
 
-@app.get("/user/by-name", response_model=UserResponseDTO)
-def get_UserByNamePoint(first_name: str, last_name: str):
-    user = getPostByUserName(first_name, last_name)
-    return user
 
 
 @app.get("/posts/search", response_model=list[PostResponseDTO])
