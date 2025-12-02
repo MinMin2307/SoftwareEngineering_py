@@ -8,8 +8,8 @@ cur.execute("DROP TABLE IF EXISTS user")
 
 cur.execute("""CREATE TABLE IF NOT EXISTS user(
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    first_name TEXT NOT NULL,
-    last_name  TEXT NOT NULL,
+    first_name TEXT NOT NULL COLLATE NOCASE,
+    last_name  TEXT NOT NULL COLLATE NOCASE,
     UNIQUE(first_name, last_name)
 )""")
 
@@ -57,7 +57,7 @@ def search_postsByText(text: str):
 
 def get_userByName(first_name: str, last_name: str):
     user_row = cur.execute(
-        "SELECT * FROM user WHERE first_name = ? AND last_name = ?",
+        "SELECT * FROM user WHERE LOWER(first_name) = LOWER(?) AND LOWER(last_name) = LOWER(?)",
         (first_name, last_name)
     ).fetchone()
     return user_row
