@@ -1,68 +1,105 @@
-import sqlite3
+import os
+import psycopg2
 
-con = sqlite3.connect('database.db', check_same_thread=False )
+DB_HOST = os.getenv("DB_HOST", "db")
+DB_PORT = os.getenv("DB_PORT", "5432")
+DB_NAME = os.getenv("DB_NAME", "socialdb")
+DB_USER = os.getenv("DB_USER", "socialuser")
+DB_PASSWORD = os.getenv("DB_PASSWORD", "secretpassword")
+
+con = psycopg2.connect(
+    host=DB_HOST,
+    port=DB_PORT,
+    dbname=DB_NAME,
+    user=DB_USER,
+    password=DB_PASSWORD,
+)
+con.autocommit = True
 cur = con.cursor()
 
-cur.execute("DROP TABLE IF EXISTS post")
-cur.execute("DROP TABLE IF EXISTS user")
-
-cur.execute("""CREATE TABLE IF NOT EXISTS user(
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    first_name TEXT NOT NULL COLLATE NOCASE,
-    last_name  TEXT NOT NULL COLLATE NOCASE,
-    UNIQUE(first_name, last_name)
-)""")
+cur.execute("""
+CREATE TABLE IF NOT EXISTS "user"(
+    id SERIAL PRIMARY KEY,
+    first_name TEXT NOT NULL,
+    last_name  TEXT NOT NULL,
+    CONSTRAINT user_unique_name UNIQUE (first_name, last_name)
+)
+""")
 
 cur.execute("""
 CREATE TABLE IF NOT EXISTS post(
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     image TEXT,
-    text TEXT NOT NULL,
-    user_id INTEGER NOT NULL,
-    createdAt INTEGER DEFAULT (strftime('%Y-%m-%d %H:%M:%f','now')),
-    UNIQUE(text),
-    FOREIGN KEY(user_id) REFERENCES user(id)
-)""")
+    text TEXT NOT NULL UNIQUE,
+    user_id INTEGER NOT NULL REFERENCES "user"(id),
+    createdAt TIMESTAMP DEFAULT NOW()
+)
+""")
+
+# --------- FUNKTIONEN, WIE SIE DEIN SERVICE-CODE ERWARTET ---------
 
 def save_user(first_name: str, last_name: str) -> int:
-    cur.execute( "INSERT INTO user(first_name, last_name) VALUES(?, ?)", (first_name, last_name))
-    return cur.lastrowid
+    """Neuen User speichern und ID zurückgeben."""
+    cur.execute(
+        'INSERT INTO "user"(first_name, last_name) VALUES (%s, %s) RETURNING id',
+        (first_name, last_name),
+    )
+    user_id = cur.fetchone()[0]
+    return user_id
 
-def save_post(image:str, text:str, user_id: int) -> int:
-    cur.execute("INSERT INTO post(image,text,user_id) VALUES(?,?,?)",
-                (image, text, user_id))
-    return cur.lastrowid
 
-def get_postById(id: int ):
-    post_row = cur.execute("SELECT * FROM post WHERE id = ?", (id,)).fetchone()
-    return post_row
+def save_post(image: str, text: str, user_id: int) -> int:
+    """Neuen Post speichern und ID zurückgeben."""
+    cur.execute(
+        "INSERT INTO post(image, text, user_id) VALUES (%s, %s, %s) RETURNING id",
+        (image, text, user_id),
+    )
+    post_id = cur.fetchone()[0]
+    return post_id
+
+
+def get_postById(id: int):
+    cur.execute(
+        "SELECT id, image, text, user_id FROM post WHERE id = %s",
+        (id,),
+    )
+    return cur.fetchone()
+
 
 def get_allPosts():
-    post_allRows = cur.execute(
-        "SELECT id, image, text, user_id FROM post").fetchall()
-    return post_allRows
+    cur.execute("SELECT id, image, text, user_id FROM post ORDER BY id")
+    return cur.fetchall()
+
 
 def get_userById(id: int):
-    user_row = cur.execute("SELECT * FROM user WHERE id = ?", (id,)).fetchone()
-    return user_row
+    cur.execute(
+        'SELECT id, first_name, last_name FROM "user" WHERE id = %s',
+        (id,),
+    )
+    return cur.fetchone()
+
 
 def get_postByUserId(user_id: int):
-    post_userRow = cur.execute("SELECT * FROM post WHERE user_id = ?", (user_id,)).fetchall()
-    return post_userRow
+    cur.execute(
+        "SELECT id, image, text, user_id FROM post WHERE user_id = %s ORDER BY id",
+        (user_id,),
+    )
+    return cur.fetchall()
+
 
 def search_postsByText(text: str):
-    text_rows = cur.execute(
-        "SELECT id, image, text, user_id FROM post WHERE text LIKE ?",(f"%{text}%",)).fetchall()
-    return text_rows
+    pattern = f"%{text}%"
+    cur.execute(
+        "SELECT id, image, text, user_id FROM post WHERE text ILIKE %s",
+        (pattern,),
+    )
+    return cur.fetchall()
+
 
 def get_userByName(first_name: str, last_name: str):
-    user_row = cur.execute(
-        "SELECT * FROM user WHERE LOWER(first_name) = LOWER(?) AND LOWER(last_name) = LOWER(?)",
-        (first_name, last_name)
-    ).fetchone()
-    return user_row
-
-
-
-
-
+    cur.execute(
+        'SELECT id, first_name, last_name FROM "user" '
+        "WHERE LOWER(first_name) = LOWER(%s) AND LOWER(last_name) = LOWER(%s)",
+        (first_name, last_name),
+    )
+    return cur.fetchone()
