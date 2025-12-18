@@ -19,6 +19,8 @@ jobs:
           POSTGRES_DB: socialdb
           POSTGRES_USER: socialuser
           POSTGRES_PASSWORD: secretpassword
+        ports:
+          - 5432:5432
         options: >-
           --health-cmd="pg_isready -U socialuser -d socialdb"
           --health-interval=5s
@@ -26,18 +28,20 @@ jobs:
           --health-retries=20
       rabbitmq:
         image: rabbitmq:3
+        ports:
+          - 5672:5672
         options: >-
           --health-cmd="rabbitmq-diagnostics -q ping"
           --health-interval=5s
           --health-timeout=5s
           --health-retries=20
     env:
-      DB_HOST: postgres
+      DB_HOST: 127.0.0.1
       DB_PORT: "5432"
       DB_NAME: socialdb
       DB_USER: socialuser
       DB_PASSWORD: secretpassword
-      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_HOST: 127.0.0.1
       RABBITMQ_QUEUE: image_resize
     steps:
       - name: Checkout repository
