@@ -10,7 +10,7 @@ class TestAPI(unittest.TestCase):
     def setUp(self):
         # Datenbank zwischen den Tests leeren
         db_module.cur.execute("DELETE FROM post")
-        db_module.cur.execute("DELETE FROM user")
+        db_module.cur.execute('DELETE FROM "user"')
         db_module.con.commit()
         self.client = TestClient(api_module.app)
 
@@ -24,19 +24,19 @@ class TestAPI(unittest.TestCase):
         user = user_resp.json()
         self.assertIn("id", user)
 
-        # Create post for this user
+        # Create post for this user (multipart with image)
+        dummy_image = b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR"
         post_resp = self.client.post(
             "/post",
-            json={
-                "image": "",
-                "text": "Hello from API test",
-                "user_id": user["id"],
-            },
+            data={"text": "Hello from API test", "user_id": str(user["id"])},
+            files={"file": ("hello.png", dummy_image, "image/png")},
         )
         self.assertEqual(post_resp.status_code, 200)
         post = post_resp.json()
         self.assertEqual(post["text"], "Hello from API test")
         self.assertEqual(post["user_id"], user["id"])
+        self.assertIn("image_full_url", post)
+        self.assertIn("image_thumb_url", post)
 
         # List all posts and check that our post is present
         list_resp = self.client.get("/posts")
@@ -56,11 +56,8 @@ class TestAPI(unittest.TestCase):
         for t in texts:
             self.client.post(
                 "/post",
-                json={
-                    "image": "",
-                    "text": t,
-                    "user_id": user["id"],
-                },
+                data={"text": t, "user_id": str(user["id"])},
+                files={"file": ("hello.png", b"\x89PNG\r\n\x1a\n", "image/png")},
             )
 
         # Act: fetch user (with posts) by ID
@@ -83,19 +80,13 @@ class TestAPI(unittest.TestCase):
 
         self.client.post(
             "/post",
-            json={
-                "image": "",
-                "text": "This is about FastAPI testing",
-                "user_id": user["id"],
-            },
+            data={"text": "This is about FastAPI testing", "user_id": str(user["id"])},
+            files={"file": ("a.png", b"\x89PNG\r\n\x1a\n", "image/png")},
         )
         self.client.post(
             "/post",
-            json={
-                "image": "",
-                "text": "Completely different content",
-                "user_id": user["id"],
-            },
+            data={"text": "Completely different content", "user_id": str(user["id"])},
+            files={"file": ("b.png", b"\x89PNG\r\n\x1a\n", "image/png")},
         )
 
         # Act: search for posts containing "FastAPI"
