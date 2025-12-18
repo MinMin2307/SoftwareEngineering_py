@@ -40,6 +40,7 @@ jobs:
       DB_PASSWORD: secretpassword
       RABBITMQ_HOST: 127.0.0.1
       RABBITMQ_QUEUE: image_resize
+      PYTHONPATH: ${{ github.workspace }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
