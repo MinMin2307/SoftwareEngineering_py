@@ -1,4 +1,5 @@
 import os
+import time
 import psycopg2
 
 DB_HOST = os.getenv("DB_HOST", "db")
@@ -7,13 +8,26 @@ DB_NAME = os.getenv("DB_NAME", "socialdb")
 DB_USER = os.getenv("DB_USER", "socialuser")
 DB_PASSWORD = os.getenv("DB_PASSWORD", "secretpassword")
 
-con = psycopg2.connect(
-    host=DB_HOST,
-    port=DB_PORT,
-    dbname=DB_NAME,
-    user=DB_USER,
-    password=DB_PASSWORD,
-)
+con = None
+last_err = None
+
+for _ in range(60):
+    try:
+        con = psycopg2.connect(
+            host=DB_HOST,
+            port=DB_PORT,
+            dbname=DB_NAME,
+            user=DB_USER,
+            password=DB_PASSWORD,
+        )
+        break
+    except psycopg2.OperationalError as e:
+        last_err = e
+        time.sleep(1)
+
+if con is None:
+    raise last_err
+
 con.autocommit = True
 cur = con.cursor()
 
@@ -53,27 +67,15 @@ except Exception:
     pass
 
 
-# --------- FUNKTIONEN, WIE SIE DEIN SERVICE-CODE ERWARTET ---------
-
 def save_user(first_name: str, last_name: str) -> int:
-    """Neuen User speichern und ID zurückgeben."""
     cur.execute(
         'INSERT INTO "user"(first_name, last_name) VALUES (%s, %s) RETURNING id',
         (first_name, last_name),
     )
-    user_id = cur.fetchone()[0]
-    return user_id
+    return cur.fetchone()[0]
 
 
-def save_post(
-    image_full: bytes,
-    image_full_mime: str,
-    image_thumb: bytes,
-    image_thumb_mime: str,
-    text: str,
-    user_id: int,
-) -> int:
-    """Neuen Post speichern (Full + Thumb) und ID zurückgeben."""
+def save_post(image_full: bytes, image_full_mime: str, text: str, user_id: int) -> int:
     cur.execute(
         """
         INSERT INTO post(image_full, image_full_mime, image_thumb, image_thumb_mime, text, user_id)
@@ -83,30 +85,43 @@ def save_post(
         (
             psycopg2.Binary(image_full),
             image_full_mime,
-            psycopg2.Binary(image_thumb),
-            image_thumb_mime,
+            None,
+            None,
             text,
             user_id,
         ),
     )
-    post_id = cur.fetchone()[0]
-    return post_id
+    return cur.fetchone()[0]
+
+
+def update_post_thumbnail(post_id: int, thumb_bytes: bytes, thumb_mime: str) -> None:
+    cur.execute(
+        """
+        UPDATE post
+        SET image_thumb = %s, image_thumb_mime = %s
+        WHERE id = %s
+        """,
+        (psycopg2.Binary(thumb_bytes), thumb_mime, post_id),
+    )
+
+
+def get_post_full_for_resize(post_id: int):
+    cur.execute(
+        "SELECT image_full, image_full_mime FROM post WHERE id = %s",
+        (post_id,),
+    )
+    return cur.fetchone()
 
 
 def get_postById(id: int):
     cur.execute(
-        """
-        SELECT id, text, user_id
-        FROM post
-        WHERE id = %s
-        """,
+        "SELECT id, text, user_id FROM post WHERE id = %s",
         (id,),
     )
     return cur.fetchone()
 
 
 def get_postImagesById(id: int):
-    """Nur für Bild-Downloads: Full/Thumb + Mime holen."""
     cur.execute(
         """
         SELECT image_full, image_full_mime, image_thumb, image_thumb_mime
