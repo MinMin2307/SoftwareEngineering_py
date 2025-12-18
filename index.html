@@ -8,12 +8,15 @@
     h1 { text-align: center; }
     form, section { margin-bottom: 20px; padding: 10px; border: 1px solid #ccc; border-radius: 4px; }
     label { display: block; margin: 6px 0; }
-    input[type="text"], textarea { width: 100%; padding: 6px; box-sizing: border-box; }
+    input[type="text"], textarea, input[type="number"] { width: 100%; padding: 6px; box-sizing: border-box; }
     button { margin-top: 8px; padding: 6px 12px; }
     .post { border-bottom: 1px solid #ddd; padding: 8px 0; }
     .post:last-child { border-bottom: none; }
     .post-header { font-weight: bold; }
     .post-user { color: #555; font-size: 0.9em; }
+    img { max-width: 100%; max-height: 200px; display: block; margin-top: 6px; border-radius: 4px; }
+    .thumb { cursor: pointer; }
+    .hint { color: #666; font-size: 0.85em; margin-top: 4px; }
   </style>
 </head>
 <body>
@@ -31,10 +34,14 @@
         Nachname:
         <input type="text" id="lastName" required />
       </label>
+
+      <!-- NEU: Datei-Upload statt Bild-URL -->
       <label>
-        Bild-URL (optional):
-        <input type="text" id="image" />
+        Bild-Datei (optional):
+        <input type="file" id="imageFile" accept="image/*" />
+        <div class="hint">Du kannst ein Bild aus deinem Ordner auswählen und hochladen.</div>
       </label>
+
       <label>
         Text:
         <textarea id="text" rows="4" required></textarea>
@@ -82,18 +89,39 @@
         postsContainer.textContent = 'Keine Beiträge gefunden.';
         return;
       }
+
       list.forEach(post => {
         const div = document.createElement('div');
         div.className = 'post';
-        const imageHtml = post.image
-          ? `<div><img src="${post.image}" alt="Bild" style="max-width: 100%; max-height: 200px;" /></div>`
+
+        // NEU: Thumbnail anzeigen (wenn vorhanden)
+        // Backend liefert image_thumb_url und image_full_url
+        const thumbUrl = post.image_thumb_url ? `${API_BASE}${post.image_thumb_url}` : '';
+        const fullUrl  = post.image_full_url  ? `${API_BASE}${post.image_full_url}`  : '';
+
+        const imageHtml = thumbUrl
+          ? `
+              <div>
+                <img class="thumb" src="${thumbUrl}" alt="Thumbnail" title="Klicken für Full-Size" />
+                <div class="hint">Thumbnail (reduced-size) – klick zum Öffnen von Full-Size</div>
+              </div>
+            `
           : '';
+
         div.innerHTML = `
           <div class="post-header">Post #${post.id}</div>
           <div class="post-user">User-ID: ${post.user_id}</div>
           <div class="post-content">${post.text}</div>
           ${imageHtml}
         `;
+
+        // Klick auf Thumbnail -> Full-Size in neuem Tab öffnen
+        if (thumbUrl && fullUrl) {
+          div.querySelector('img.thumb').addEventListener('click', () => {
+            window.open(fullUrl, '_blank');
+          });
+        }
+
         postsContainer.appendChild(div);
       });
     }
@@ -109,16 +137,20 @@
       }
     }
 
-    // a. Submit a post: 1) create user, 2) create post
+    // a. Submit a post: 1) create user, 2) create post (multipart upload)
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
+
       const firstName = document.getElementById('firstName').value.trim();
       const lastName = document.getElementById('lastName').value.trim();
-      const image = document.getElementById('image').value.trim();
       const text = document.getElementById('text').value.trim();
+      const fileInput = document.getElementById('imageFile');
+      const file = fileInput.files && fileInput.files[0] ? fileInput.files[0] : null;
+
       if (!firstName || !lastName || !text) return;
 
       try {
+        // 1) create user
         const userResponse = await fetch(`${API_BASE}/user`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -127,21 +159,26 @@
         if (!userResponse.ok) throw new Error();
         const user = await userResponse.json();
 
+        // 2) create post (multipart/form-data)
+        const fd = new FormData();
+        fd.append('text', text);
+        fd.append('user_id', String(user.id));
+        if (file) fd.append('file', file); // optional
+
         const postResponse = await fetch(`${API_BASE}/post`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            image: image || '',
-            text: text,
-            user_id: user.id
-          })
+          body: fd // WICHTIG: kein Content-Type setzen, Browser macht boundary selbst
         });
-        if (!postResponse.ok) throw new Error();
+
+        if (!postResponse.ok) {
+          const msg = await postResponse.text().catch(() => '');
+          throw new Error(msg || 'Upload failed');
+        }
 
         form.reset();
         await loadAllPosts();
-      } catch {
-        alert('Fehler beim Absenden des Beitrags.');
+      } catch (err) {
+        alert('Fehler beim Absenden des Beitrags.\n' + (err?.message || ''));
       }
     });
 
@@ -181,4 +218,3 @@
   </script>
 </body>
 </html>
-

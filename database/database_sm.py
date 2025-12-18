@@ -29,12 +29,29 @@ CREATE TABLE IF NOT EXISTS "user"(
 cur.execute("""
 CREATE TABLE IF NOT EXISTS post(
     id SERIAL PRIMARY KEY,
-    image TEXT,
+    image_full BYTEA,
+    image_full_mime TEXT,
+    image_thumb BYTEA,
+    image_thumb_mime TEXT,
     text TEXT NOT NULL UNIQUE,
     user_id INTEGER NOT NULL REFERENCES "user"(id),
     createdAt TIMESTAMP DEFAULT NOW()
 )
 """)
+
+try:
+    cur.execute("""ALTER TABLE post ADD COLUMN IF NOT EXISTS image_full BYTEA""")
+    cur.execute("""ALTER TABLE post ADD COLUMN IF NOT EXISTS image_full_mime TEXT""")
+    cur.execute("""ALTER TABLE post ADD COLUMN IF NOT EXISTS image_thumb BYTEA""")
+    cur.execute("""ALTER TABLE post ADD COLUMN IF NOT EXISTS image_thumb_mime TEXT""")
+except Exception:
+    pass
+
+try:
+    cur.execute("""ALTER TABLE post DROP COLUMN IF EXISTS image""")
+except Exception:
+    pass
+
 
 # --------- FUNKTIONEN, WIE SIE DEIN SERVICE-CODE ERWARTET ---------
 
@@ -48,11 +65,29 @@ def save_user(first_name: str, last_name: str) -> int:
     return user_id
 
 
-def save_post(image: str, text: str, user_id: int) -> int:
-    """Neuen Post speichern und ID zurückgeben."""
+def save_post(
+    image_full: bytes,
+    image_full_mime: str,
+    image_thumb: bytes,
+    image_thumb_mime: str,
+    text: str,
+    user_id: int,
+) -> int:
+    """Neuen Post speichern (Full + Thumb) und ID zurückgeben."""
     cur.execute(
-        "INSERT INTO post(image, text, user_id) VALUES (%s, %s, %s) RETURNING id",
-        (image, text, user_id),
+        """
+        INSERT INTO post(image_full, image_full_mime, image_thumb, image_thumb_mime, text, user_id)
+        VALUES (%s, %s, %s, %s, %s, %s)
+        RETURNING id
+        """,
+        (
+            psycopg2.Binary(image_full),
+            image_full_mime,
+            psycopg2.Binary(image_thumb),
+            image_thumb_mime,
+            text,
+            user_id,
+        ),
     )
     post_id = cur.fetchone()[0]
     return post_id
@@ -60,14 +95,31 @@ def save_post(image: str, text: str, user_id: int) -> int:
 
 def get_postById(id: int):
     cur.execute(
-        "SELECT id, image, text, user_id FROM post WHERE id = %s",
+        """
+        SELECT id, text, user_id
+        FROM post
+        WHERE id = %s
+        """,
+        (id,),
+    )
+    return cur.fetchone()
+
+
+def get_postImagesById(id: int):
+    """Nur für Bild-Downloads: Full/Thumb + Mime holen."""
+    cur.execute(
+        """
+        SELECT image_full, image_full_mime, image_thumb, image_thumb_mime
+        FROM post
+        WHERE id = %s
+        """,
         (id,),
     )
     return cur.fetchone()
 
 
 def get_allPosts():
-    cur.execute("SELECT id, image, text, user_id FROM post ORDER BY id")
+    cur.execute("SELECT id, text, user_id FROM post ORDER BY id")
     return cur.fetchall()
 
 
@@ -81,7 +133,7 @@ def get_userById(id: int):
 
 def get_postByUserId(user_id: int):
     cur.execute(
-        "SELECT id, image, text, user_id FROM post WHERE user_id = %s ORDER BY id",
+        "SELECT id, text, user_id FROM post WHERE user_id = %s ORDER BY id",
         (user_id,),
     )
     return cur.fetchall()
@@ -90,7 +142,7 @@ def get_postByUserId(user_id: int):
 def search_postsByText(text: str):
     pattern = f"%{text}%"
     cur.execute(
-        "SELECT id, image, text, user_id FROM post WHERE text ILIKE %s",
+        "SELECT id, text, user_id FROM post WHERE text ILIKE %s",
         (pattern,),
     )
     return cur.fetchall()

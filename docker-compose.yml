@@ -3,6 +3,11 @@ version: "3.9"
 services:
   db:
     image: postgres:16
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U socialuser -d socialdb" ]
+      interval: 2s
+      timeout: 3s
+      retries: 20
     environment:
       POSTGRES_DB: socialdb
       POSTGRES_USER: socialuser
@@ -15,7 +20,8 @@ services:
   api:
     build: .
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     environment:
       DB_HOST: db
       DB_PORT: "5432"

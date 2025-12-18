@@ -5,6 +5,5 @@ class CreateUserDTO(BaseModel):
     last_name: str
 
 class CreatePostDTO(BaseModel):
-    image: str
     text: str
     user_id: int
