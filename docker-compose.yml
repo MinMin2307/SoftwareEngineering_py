@@ -3,11 +3,6 @@ version: "3.9"
 services:
   db:
     image: postgres:16
-    healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U socialuser -d socialdb" ]
-      interval: 2s
-      timeout: 3s
-      retries: 20
     environment:
       POSTGRES_DB: socialdb
       POSTGRES_USER: socialuser
@@ -16,11 +11,29 @@ services:
       - "5432:5432"
     volumes:
       - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U socialuser -d socialdb" ]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD-SHELL", "rabbitmq-diagnostics -q ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
 
   api:
     build: .
     depends_on:
       db:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
     environment:
       DB_HOST: db
@@ -28,8 +41,56 @@ services:
       DB_NAME: socialdb
       DB_USER: socialuser
       DB_PASSWORD: secretpassword
+
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_QUEUE_RESIZE: image_resize
+      RABBITMQ_QUEUE_TEXTGEN: nlp_textgen
+
+      JOB_MAX_RETRIES: "5"
+      TEXTGEN_MODEL: "gpt2"
     ports:
       - "8000:8000"
+
+  resize-worker:
+    build: .
+    command: ["python", "-m", "worker.resize_worker"]
+    depends_on:
+      db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_NAME: socialdb
+      DB_USER: socialuser
+      DB_PASSWORD: secretpassword
+
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_QUEUE_RESIZE: image_resize
+      JOB_MAX_RETRIES: "5"
+
+  textgen-worker:
+    build: .
+    command: ["python", "-m", "worker.textgen_worker"]
+    depends_on:
+      db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_NAME: socialdb
+      DB_USER: socialuser
+      DB_PASSWORD: secretpassword
+
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_QUEUE_TEXTGEN: nlp_textgen
+
+      JOB_MAX_RETRIES: "5"
+      TEXTGEN_MODEL: "gpt2"
+      TEXTGEN_MAX_NEW_TOKENS: "40"
 
 volumes:
   db-data:

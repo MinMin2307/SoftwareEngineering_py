@@ -4,4 +4,6 @@ pydantic
 psycopg2
 pillow
 python-multipart
-
+pika
+transformers
+torch
