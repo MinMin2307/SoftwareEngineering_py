@@ -1,7 +1,8 @@
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response
-
+from service.queue import publish_textgen_job
+from database.database_sm import get_postById
 from dto.RequesDTO import CreateUserDTO
 from dto.ResponseDTO import UserResponseDTO, PostResponseDTO
 from service.postService import (
@@ -33,23 +34,33 @@ def read_index():
 def create_UserPoint(dto: CreateUserDTO):
     return createUser(dto)
 
+from typing import Optional
+from fastapi import UploadFile, File, Form, HTTPException
+
 @app.post("/post", response_model=PostResponseDTO)
 async def create_PostPoint(
-    file: UploadFile = File(...),
+    file: Optional[UploadFile] = File(None),   # <- optional
     text: str = Form(...),
     user_id: int = Form(...),
 ):
-    image_bytes = await file.read()
-    if not image_bytes:
-        raise HTTPException(status_code=400, detail="No file content received.")
-    if not (file.content_type or "").startswith("image/"):
-        raise HTTPException(status_code=400, detail="Uploaded file is not an image.")
+    image_bytes = None
+    image_mime = None
+
+    if file is not None:
+        image_bytes = await file.read()
+        if not image_bytes:
+            raise HTTPException(status_code=400, detail="No file content received.")
+        if not (file.content_type or "").startswith("image/"):
+            raise HTTPException(status_code=400, detail="Uploaded file is not an image.")
+        image_mime = file.content_type or "application/octet-stream"
+
     return createPost(
         image_bytes=image_bytes,
-        image_mime=file.content_type or "application/octet-stream",
+        image_mime=image_mime,
         text=text,
         user_id=user_id,
     )
+
 
 @app.get("/posts", response_model=list[PostResponseDTO])
 def get_PostsPoint():
@@ -83,10 +94,18 @@ def get_PostImageThumb(id: int):
 def get_UserByNamePoint(first_name: str, last_name: str):
     return getPostByUserName(first_name, last_name)
 
-@app.get("/user/{id:int}", response_model=UserResponseDTO)
+@app.get("/user/{id}", response_model=UserResponseDTO)
 def get_UserByIdPoint(id: int):
     return getPostByUserId(id)
 
 @app.get("/posts/search", response_model=list[PostResponseDTO])
 def get_PostByTextPoint(text: str):
     return searchPostByText(text)
+
+@app.post("/post/{id}/textgen")
+def trigger_textgen(id: int):
+    post = get_postById(id)
+    if post is None:
+        raise HTTPException(status_code=404, detail="Post not found.")
+    publish_textgen_job(id)
+    return {"status": "queued", "post_id": id}

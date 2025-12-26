@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 from pydantic import BaseModel
 
 
@@ -8,6 +8,9 @@ class PostResponseDTO(BaseModel):
     user_id: int
     image_full_url: str
     image_thumb_url: str
+    generated_text: Optional[str] = None
+    generated_text_status: Optional[str] = None
+    generated_text_error: Optional[str] = None
 
 
 class UserResponseDTO(BaseModel):
