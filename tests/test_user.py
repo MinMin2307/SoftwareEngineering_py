@@ -9,7 +9,7 @@ from service.userService import createUser
 class TestUser(unittest.TestCase):
     def setUp(self):
         database_sm.cur.execute("DELETE FROM post")
-        database_sm.cur.execute("DELETE FROM user")
+        database_sm.cur.execute('DELETE FROM "user"')
         database_sm.con.commit()
 
     def test_create_user_creates_and_persists(self):
@@ -22,10 +22,11 @@ class TestUser(unittest.TestCase):
         self.assertEqual(user.last_name, "Doe")
         self.assertEqual(user.posts, [])
 
-        row = database_sm.cur.execute(
-            "SELECT first_name, last_name FROM user WHERE id = ?",
+        database_sm.cur.execute(
+            'SELECT first_name, last_name FROM "user" WHERE id = %s',
             (user.id,),
-        ).fetchone()
+        )
+        row = database_sm.cur.fetchone()
         self.assertEqual(row, ("Alice", "Doe"))
 
     def test_create_user_returns_existing_if_duplicate(self):
