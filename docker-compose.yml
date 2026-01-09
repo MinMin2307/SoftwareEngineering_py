@@ -41,8 +41,13 @@ services:
       DB_NAME: socialdb
       DB_USER: socialuser
       DB_PASSWORD: secretpassword
+
       RABBITMQ_HOST: rabbitmq
-      RABBITMQ_QUEUE: image_resize
+      RABBITMQ_QUEUE_RESIZE: image_resize
+      RABBITMQ_QUEUE_TEXTGEN: nlp_textgen
+
+      JOB_MAX_RETRIES: "5"
+      TEXTGEN_MODEL: "gpt2"
     ports:
       - "8000:8000"
 
@@ -60,8 +65,32 @@ services:
       DB_NAME: socialdb
       DB_USER: socialuser
       DB_PASSWORD: secretpassword
+
       RABBITMQ_HOST: rabbitmq
-      RABBITMQ_QUEUE: image_resize
+      RABBITMQ_QUEUE_RESIZE: image_resize
+      JOB_MAX_RETRIES: "5"
+
+  textgen-worker:
+    build: .
+    command: ["python", "-m", "worker.textgen_worker"]
+    depends_on:
+      db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_NAME: socialdb
+      DB_USER: socialuser
+      DB_PASSWORD: secretpassword
+
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_QUEUE_TEXTGEN: nlp_textgen
+
+      JOB_MAX_RETRIES: "5"
+      TEXTGEN_MODEL: "gpt2"
+      TEXTGEN_MAX_NEW_TOKENS: "40"
 
 volumes:
   db-data:

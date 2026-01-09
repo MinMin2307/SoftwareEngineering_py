@@ -7,7 +7,7 @@ from PIL import Image
 from database.database_sm import get_post_full_for_resize, update_post_thumbnail
 
 RABBITMQ_HOST = os.getenv("RABBITMQ_HOST", "rabbitmq")
-RABBITMQ_QUEUE = os.getenv("RABBITMQ_QUEUE", "image_resize")
+RABBITMQ_QUEUE = os.getenv("RABBITMQ_QUEUE_RESIZE", "image_resize")
 THUMB_MAX_SIZE = (256, 256)
 
 def make_thumb_jpeg(image_bytes: bytes) -> bytes:
