@@ -6,3 +6,5 @@ pillow
 python-multipart
 pika
 httpx
+transformers
+torch

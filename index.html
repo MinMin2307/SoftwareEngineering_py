@@ -14,9 +14,17 @@
     .post:last-child { border-bottom: none; }
     .post-header { font-weight: bold; }
     .post-user { color: #555; font-size: 0.9em; }
-    img { max-width: 100%; max-height: 200px; display: block; margin-top: 6px; border-radius: 4px; }
-    .thumb { cursor: pointer; }
+    .post-content { margin: 6px 0; }
+
+    .generated { margin-top: 6px; padding: 8px; border-left: 3px solid #999; background: #f7f7f7; }
+    .generated-title { font-size: 0.9em; color: #444; font-weight: bold; margin-bottom: 4px; }
+
+    .toolbar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+    .toolbar button { margin-top:0; }
+
+    .thumb { max-width: 180px; max-height: 180px; cursor: pointer; border: 1px solid #ccc; }
     .hint { color: #666; font-size: 0.85em; margin-top: 4px; }
+    .error { color: #c00; font-weight: bold; }
   </style>
 </head>
 <body>
@@ -35,11 +43,10 @@
         <input type="text" id="lastName" required />
       </label>
 
-      <!-- NEU: Datei-Upload statt Bild-URL -->
+      <!-- Datei-Upload -->
       <label>
-        Bild-Datei (optional):
+        Bild-Datei:
         <input type="file" id="imageFile" accept="image/*" />
-        <div class="hint">Du kannst ein Bild aus deinem Ordner auswählen und hochladen.</div>
       </label>
 
       <label>
@@ -48,26 +55,28 @@
       </label>
       <button type="submit">Absenden</button>
     </form>
+    <div id="post-result"></div>
   </section>
 
-  <!-- c. Find posts from one user (by name) -->
   <section>
-    <h2>Beiträge eines Benutzers finden</h2>
+    <h2>Beiträge eines Users suchen</h2>
     <label>
       Vorname:
-      <input type="text" id="searchFirstName" placeholder="Vorname" />
+      <input type="text" id="searchFirstName" />
     </label>
     <label>
       Nachname:
-      <input type="text" id="searchLastName" placeholder="Nachname" />
+      <input type="text" id="searchLastName" />
     </label>
-    <button id="searchButton">Suchen</button>
-    <button id="clearSearch">Alle anzeigen</button>
+    <button id="searchButton" type="button">Suchen</button>
+    <button id="clearSearch" type="button">Zurücksetzen</button>
   </section>
 
   <!-- b. List all posts -->
   <section>
-    <h2 id="posts-title">Alle Beiträge</h2>
+    <div class="toolbar">
+      <h2 id="posts-title" style="margin:0;">Alle Beiträge</h2>
+    </div>
     <div id="posts-container"></div>
   </section>
 
@@ -82,6 +91,20 @@
     const searchButton = document.getElementById('searchButton');
     const clearButton = document.getElementById('clearSearch');
 
+    const refreshButton = document.getElementById('refreshButton');
+
+    // Keep track of what the user is currently viewing (all posts vs. one user)
+    let currentView = { type: 'all' }; // or: { type:'user', first_name, last_name }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+    }
+
     function renderPosts(list, subtitle = 'Alle Beiträge') {
       postsTitle.textContent = subtitle;
       postsContainer.innerHTML = '';
@@ -94,8 +117,6 @@
         const div = document.createElement('div');
         div.className = 'post';
 
-        // NEU: Thumbnail anzeigen (wenn vorhanden)
-        // Backend liefert image_thumb_url und image_full_url
         const thumbUrl = post.image_thumb_url ? `${API_BASE}${post.image_thumb_url}` : '';
         const fullUrl  = post.image_full_url  ? `${API_BASE}${post.image_full_url}`  : '';
 
@@ -103,21 +124,32 @@
           ? `
               <div>
                 <img class="thumb" src="${thumbUrl}" alt="Thumbnail" title="Klicken für Full-Size" />
-                <div class="hint">Thumbnail (reduced-size) – klick zum Öffnen von Full-Size</div>
+                <div class="hint">click to open Full-Size</div>
               </div>
             `
           : '';
 
+        // Asynchron generierter GPT2-Text (kommt später vom Backend, wenn Worker fertig ist)
+        const genHtml = post.generated_text
+          ? `
+              <div class="generated">
+                <div class="generated-title">GPT2-Textvorschlag</div>
+                <div class="post-content">${escapeHtml(post.generated_text)}</div>
+              </div>
+            `
+          : `<div class="hint">GPT2-Text wird noch generiert …</div>`;
+
         div.innerHTML = `
           <div class="post-header">Post #${post.id}</div>
           <div class="post-user">User-ID: ${post.user_id}</div>
-          <div class="post-content">${post.text}</div>
+          <div class="post-content">${escapeHtml(post.text)}</div>
           ${imageHtml}
+          ${genHtml}
         `;
 
         // Klick auf Thumbnail -> Full-Size in neuem Tab öffnen
         if (thumbUrl && fullUrl) {
-          div.querySelector('img.thumb').addEventListener('click', () => {
+          div.querySelector('img.thumb')?.addEventListener('click', () => {
             window.open(fullUrl, '_blank');
           });
         }
@@ -135,6 +167,24 @@
       } catch {
         postsContainer.textContent = 'Fehler beim Laden der Beiträge.';
       }
+    }
+
+    async function refreshCurrentView() {
+      if (currentView.type === 'user') {
+        const params = new URLSearchParams({
+          first_name: currentView.first_name,
+          last_name: currentView.last_name
+        });
+        const response = await fetch(`${API_BASE}/user/by-name?${params.toString()}`);
+        if (!response.ok) throw new Error();
+        const user = await response.json();
+        renderPosts(
+          user.posts,
+          `Beiträge von "${user.first_name} ${user.last_name}" (ID: ${user.id})`
+        );
+        return;
+      }
+      await loadAllPosts();
     }
 
     // a. Submit a post: 1) create user, 2) create post (multipart upload)
@@ -161,24 +211,25 @@
 
         // 2) create post (multipart/form-data)
         const fd = new FormData();
+        if (file) fd.append('file', file);
         fd.append('text', text);
         fd.append('user_id', String(user.id));
-        if (file) fd.append('file', file); // optional
 
         const postResponse = await fetch(`${API_BASE}/post`, {
           method: 'POST',
-          body: fd // WICHTIG: kein Content-Type setzen, Browser macht boundary selbst
+          body: fd
         });
+        if (!postResponse.ok) throw new Error();
+        const post = await postResponse.json();
 
-        if (!postResponse.ok) {
-          const msg = await postResponse.text().catch(() => '');
-          throw new Error(msg || 'Upload failed');
-        }
-
+        // Reset form
         form.reset();
+
+        currentView = { type: 'all' };
         await loadAllPosts();
       } catch (err) {
-        alert('Fehler beim Absenden des Beitrags.\n' + (err?.message || ''));
+        document.getElementById('post-result').innerHTML =
+          `<div class="error">Fehler beim Absenden des Beitrags.</div>`;
       }
     });
 
@@ -187,6 +238,7 @@
       const firstName = searchFirstNameInput.value.trim();
       const lastName = searchLastNameInput.value.trim();
       if (!firstName || !lastName) {
+        currentView = { type: 'all' };
         await loadAllPosts();
         return;
       }
@@ -198,6 +250,9 @@
         const response = await fetch(`${API_BASE}/user/by-name?${params.toString()}`);
         if (!response.ok) throw new Error();
         const user = await response.json();
+
+        currentView = { type: 'user', first_name: firstName, last_name: lastName };
+
         renderPosts(
           user.posts,
           `Beiträge von "${user.first_name} ${user.last_name}" (ID: ${user.id})`
@@ -210,8 +265,22 @@
     clearButton.addEventListener('click', async () => {
       searchFirstNameInput.value = '';
       searchLastNameInput.value = '';
+      currentView = { type: 'all' };
       await loadAllPosts();
     });
+
+    refreshButton.addEventListener('click', async () => {
+      try {
+        await refreshCurrentView();
+      } catch {
+        // ignore
+      }
+    });
+
+    // Auto-refresh every 5s so async jobs (thumbnail + GPT2 text) show up without manual reload
+    setInterval(() => {
+      refreshCurrentView().catch(() => {});
+    }, 5000);
 
     // initial load
     loadAllPosts();
