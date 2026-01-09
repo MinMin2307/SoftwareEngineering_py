@@ -58,6 +58,20 @@ try:
     cur.execute("""ALTER TABLE post ADD COLUMN IF NOT EXISTS image_full_mime TEXT""")
     cur.execute("""ALTER TABLE post ADD COLUMN IF NOT EXISTS image_thumb BYTEA""")
     cur.execute("""ALTER TABLE post ADD COLUMN IF NOT EXISTS image_thumb_mime TEXT""")
+    cur.execute(
+        """
+        DO $$
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1
+                FROM pg_constraint
+                WHERE conname = 'post_unique_text'
+            ) THEN
+                ALTER TABLE post ADD CONSTRAINT post_unique_text UNIQUE (text);
+            END IF;
+        END $$;
+        """
+    )
 except Exception:
     pass
 
