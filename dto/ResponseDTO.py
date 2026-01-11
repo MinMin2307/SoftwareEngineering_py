@@ -11,6 +11,13 @@ class PostResponseDTO(BaseModel):
     generated_text: Optional[str] = None
     generated_text_status: Optional[str] = None
     generated_text_error: Optional[str] = None
+    sentiment_label: Optional[str] = None
+    sentiment_score: Optional[float] = None
+    sentiment_status: Optional[str] = None
+    sentiment_error: Optional[str] = None
+    headline_text: Optional[str] = None
+    headline_status: Optional[str] = None
+    headline_error: Optional[str] = None
 
 
 class UserResponseDTO(BaseModel):

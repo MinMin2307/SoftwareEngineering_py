@@ -139,12 +139,38 @@
             `
           : `<div class="hint">GPT2-Text wird noch generiert …</div>`;
 
+        const headlineHtml = post.headline_text
+          ? `
+              <div class="generated">
+                <div class="generated-title">Headline</div>
+                <div class="post-content">${escapeHtml(post.headline_text)}</div>
+              </div>
+            `
+          : post.headline_status === 'FAILED'
+            ? `<div class="hint error">Headline fehlgeschlagen.</div>`
+            : `<div class="hint">Headline wird noch generiert …</div>`;
+
+        const sentimentHtml = post.sentiment_label
+          ? `
+              <div class="generated">
+                <div class="generated-title">Sentiment</div>
+                <div class="post-content">
+                  ${escapeHtml(post.sentiment_label)} (${Number(post.sentiment_score || 0).toFixed(3)})
+                </div>
+              </div>
+            `
+          : post.sentiment_status === 'FAILED'
+            ? `<div class="hint error">Sentiment fehlgeschlagen.</div>`
+            : `<div class="hint">Sentiment wird noch analysiert …</div>`;
+
         div.innerHTML = `
           <div class="post-header">Post #${post.id}</div>
           <div class="post-user">User-ID: ${post.user_id}</div>
           <div class="post-content">${escapeHtml(post.text)}</div>
           ${imageHtml}
           ${genHtml}
+          ${headlineHtml}
+          ${sentimentHtml}
         `;
 
         // Klick auf Thumbnail -> Full-Size in neuem Tab öffnen

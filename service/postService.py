@@ -9,7 +9,7 @@ from database.database_sm import (
     get_userByName,
 )
 from dto.ResponseDTO import PostResponseDTO, UserResponseDTO
-from service.queue import publish_resize_job, publish_textgen_job
+from service.queue import publish_resize_job, publish_textgen_job, publish_sentiment_job, publish_headline_job
 
 
 def _post_to_dto(
@@ -19,6 +19,13 @@ def _post_to_dto(
     generated_text=None,
     generated_text_status=None,
     generated_text_error=None,
+    sentiment_label=None,
+    sentiment_score=None,
+    sentiment_status=None,
+    sentiment_error=None,
+    headline_text=None,
+    headline_status=None,
+    headline_error=None,
 ) -> PostResponseDTO:
     return PostResponseDTO(
         id=post_id,
@@ -29,6 +36,13 @@ def _post_to_dto(
         generated_text=generated_text,
         generated_text_status=generated_text_status,
         generated_text_error=generated_text_error,
+        sentiment_label=sentiment_label,
+        sentiment_score=sentiment_score,
+        sentiment_status=sentiment_status,
+        sentiment_error=sentiment_error,
+        headline_text=headline_text,
+        headline_status=headline_status,
+        headline_error=headline_error,
     )
 
 
@@ -45,8 +59,24 @@ def createPost(image_bytes: Optional[bytes], image_mime: Optional[str], text: st
         publish_resize_job(post_id)
 
     publish_textgen_job(post_id)
+    publish_sentiment_job(post_id)
+    publish_headline_job(post_id)
 
-    return _post_to_dto(post_id, text, user_id, None, "PENDING", None)
+    return _post_to_dto(
+        post_id,
+        text,
+        user_id,
+        None,
+        "PENDING",
+        None,
+        None,
+        None,
+        "PENDING",
+        None,
+        None,
+        "PENDING",
+        None,
+    )
 
 
 def getPostById(id: int) -> PostResponseDTO:

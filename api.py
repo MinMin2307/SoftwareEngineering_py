@@ -1,7 +1,7 @@
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response
-from service.queue import publish_textgen_job
+from service.queue import publish_textgen_job, publish_sentiment_job, publish_headline_job
 from database.database_sm import get_postById
 from dto.RequesDTO import CreateUserDTO
 from dto.ResponseDTO import UserResponseDTO, PostResponseDTO
@@ -108,4 +108,20 @@ def trigger_textgen(id: int):
     if post is None:
         raise HTTPException(status_code=404, detail="Post not found.")
     publish_textgen_job(id)
+    return {"status": "queued", "post_id": id}
+
+@app.post("/post/{id}/sentiment")
+def trigger_sentiment(id: int):
+    post = get_postById(id)
+    if post is None:
+        raise HTTPException(status_code=404, detail="Post not found.")
+    publish_sentiment_job(id)
+    return {"status": "queued", "post_id": id}
+
+@app.post("/post/{id}/headline")
+def trigger_headline(id: int):
+    post = get_postById(id)
+    if post is None:
+        raise HTTPException(status_code=404, detail="Post not found.")
+    publish_headline_job(id)
     return {"status": "queued", "post_id": id}
