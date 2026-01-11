@@ -45,6 +45,8 @@ services:
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_QUEUE_RESIZE: image_resize
       RABBITMQ_QUEUE_TEXTGEN: nlp_textgen
+      RABBITMQ_QUEUE_SENTIMENT: nlp_sentiment
+      RABBITMQ_QUEUE_HEADLINE: nlp_headline
 
       JOB_MAX_RETRIES: "5"
       TEXTGEN_MODEL: "gpt2"
@@ -91,6 +93,49 @@ services:
       JOB_MAX_RETRIES: "5"
       TEXTGEN_MODEL: "gpt2"
       TEXTGEN_MAX_NEW_TOKENS: "40"
+
+  sentiment-worker:
+    build: .
+    command: ["python", "-m", "worker.sentiment_worker"]
+    depends_on:
+      db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_NAME: socialdb
+      DB_USER: socialuser
+      DB_PASSWORD: secretpassword
+
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_QUEUE_SENTIMENT: nlp_sentiment
+
+      JOB_MAX_RETRIES: "5"
+      SENTIMENT_MODEL: "distilbert-base-uncased-finetuned-sst-2-english"
+
+  headline-worker:
+    build: .
+    command: ["python", "-m", "worker.headline_worker"]
+    depends_on:
+      db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_NAME: socialdb
+      DB_USER: socialuser
+      DB_PASSWORD: secretpassword
+
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_QUEUE_HEADLINE: nlp_headline
+
+      JOB_MAX_RETRIES: "5"
+      HEADLINE_MODEL: "gpt2"
+      HEADLINE_MAX_NEW_TOKENS: "12"
 
 volumes:
   db-data:

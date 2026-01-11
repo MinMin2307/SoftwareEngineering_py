@@ -49,7 +49,20 @@ CREATE TABLE IF NOT EXISTS post(
     image_thumb_mime TEXT,
     text TEXT NOT NULL,
     user_id INTEGER NOT NULL REFERENCES "user"(id),
-    createdAt TIMESTAMP DEFAULT NOW()
+    createdAt TIMESTAMP DEFAULT NOW(),
+    generated_text TEXT,
+    generated_text_status TEXT DEFAULT 'PENDING',
+    generated_text_error TEXT,
+    generated_text_updated_at TIMESTAMP,
+    sentiment_label TEXT,
+    sentiment_score REAL,
+    sentiment_status TEXT DEFAULT 'PENDING',
+    sentiment_error TEXT,
+    sentiment_updated_at TIMESTAMP,
+    headline_text TEXT,
+    headline_status TEXT DEFAULT 'PENDING',
+    headline_error TEXT,
+    headline_updated_at TIMESTAMP
 )
 """)
 
@@ -93,6 +106,23 @@ try:
 except Exception:
     pass
 
+try:
+    cur.execute("""ALTER TABLE post ADD COLUMN IF NOT EXISTS sentiment_label TEXT""")
+    cur.execute("""ALTER TABLE post ADD COLUMN IF NOT EXISTS sentiment_score REAL""")
+    cur.execute("""ALTER TABLE post ADD COLUMN IF NOT EXISTS sentiment_status TEXT DEFAULT 'PENDING'""")
+    cur.execute("""ALTER TABLE post ADD COLUMN IF NOT EXISTS sentiment_error TEXT""")
+    cur.execute("""ALTER TABLE post ADD COLUMN IF NOT EXISTS sentiment_updated_at TIMESTAMP""")
+except Exception:
+    pass
+
+try:
+    cur.execute("""ALTER TABLE post ADD COLUMN IF NOT EXISTS headline_text TEXT""")
+    cur.execute("""ALTER TABLE post ADD COLUMN IF NOT EXISTS headline_status TEXT DEFAULT 'PENDING'""")
+    cur.execute("""ALTER TABLE post ADD COLUMN IF NOT EXISTS headline_error TEXT""")
+    cur.execute("""ALTER TABLE post ADD COLUMN IF NOT EXISTS headline_updated_at TIMESTAMP""")
+except Exception:
+    pass
+
 
 def save_user(first_name: str, last_name: str) -> int:
     cur.execute(
@@ -109,9 +139,12 @@ def save_post(image_full: bytes | None, image_full_mime: str, text: str, user_id
             image_full, image_full_mime,
             image_thumb, image_thumb_mime,
             text, user_id,
-            generated_text, generated_text_status, generated_text_error, generated_text_updated_at
+            generated_text, generated_text_status, generated_text_error, generated_text_updated_at,
+            sentiment_label, sentiment_score, sentiment_status, sentiment_error, sentiment_updated_at,
+            headline_text, headline_status, headline_error, headline_updated_at
         )
-        VALUES (%s, %s, %s, %s, %s, %s, NULL, 'PENDING', NULL, NOW())
+        VALUES (%s, %s, %s, %s, %s, %s, NULL, 'PENDING', NULL, NOW(), NULL, NULL, 'PENDING', NULL, NOW(),
+                NULL, 'PENDING', NULL, NOW())
         RETURNING id
         """,
         (
@@ -147,7 +180,10 @@ def get_post_full_for_resize(post_id: int):
 def get_postById(id: int):
     cur.execute(
         """
-        SELECT id, text, user_id, generated_text, generated_text_status, generated_text_error
+        SELECT id, text, user_id,
+               generated_text, generated_text_status, generated_text_error,
+               sentiment_label, sentiment_score, sentiment_status, sentiment_error,
+               headline_text, headline_status, headline_error
         FROM post WHERE id = %s
         """,
         (id,),
@@ -168,7 +204,10 @@ def get_postImagesById(id: int):
 
 def get_allPosts():
     cur.execute("""
-        SELECT id, text, user_id, generated_text, generated_text_status, generated_text_error
+        SELECT id, text, user_id,
+               generated_text, generated_text_status, generated_text_error,
+               sentiment_label, sentiment_score, sentiment_status, sentiment_error,
+               headline_text, headline_status, headline_error
         FROM post
         ORDER BY id DESC
     """)
@@ -184,7 +223,10 @@ def get_userById(id: int):
 
 def get_postByUserId(user_id: int):
     cur.execute("""
-        SELECT id, text, user_id, generated_text, generated_text_status, generated_text_error
+        SELECT id, text, user_id,
+               generated_text, generated_text_status, generated_text_error,
+               sentiment_label, sentiment_score, sentiment_status, sentiment_error,
+               headline_text, headline_status, headline_error
         FROM post
         WHERE user_id = %s
         ORDER BY id
@@ -194,7 +236,10 @@ def get_postByUserId(user_id: int):
 def search_postsByText(text: str):
     pattern = f"%{text}%"
     cur.execute("""
-        SELECT id, text, user_id, generated_text, generated_text_status, generated_text_error
+        SELECT id, text, user_id,
+               generated_text, generated_text_status, generated_text_error,
+               sentiment_label, sentiment_score, sentiment_status, sentiment_error,
+               headline_text, headline_status, headline_error
         FROM post
         WHERE text ILIKE %s
         ORDER BY id DESC
@@ -238,4 +283,55 @@ def update_post_generated_text(post_id: int, gen_text: str) -> None:
         WHERE id = %s
         """,
         (gen_text, post_id),
+    )
+
+def set_sentiment_status(post_id: int, status: str, error: str | None = None) -> None:
+    cur.execute(
+        """
+        UPDATE post
+        SET sentiment_status = %s,
+            sentiment_error = %s,
+            sentiment_updated_at = NOW()
+        WHERE id = %s
+        """,
+        (status, error, post_id),
+    )
+
+def update_post_sentiment(post_id: int, label: str, score: float) -> None:
+    cur.execute(
+        """
+        UPDATE post
+        SET sentiment_label = %s,
+            sentiment_score = %s,
+            sentiment_status = 'DONE',
+            sentiment_error = NULL,
+            sentiment_updated_at = NOW()
+        WHERE id = %s
+        """,
+        (label, score, post_id),
+    )
+
+def set_headline_status(post_id: int, status: str, error: str | None = None) -> None:
+    cur.execute(
+        """
+        UPDATE post
+        SET headline_status = %s,
+            headline_error = %s,
+            headline_updated_at = NOW()
+        WHERE id = %s
+        """,
+        (status, error, post_id),
+    )
+
+def update_post_headline(post_id: int, headline_text: str) -> None:
+    cur.execute(
+        """
+        UPDATE post
+        SET headline_text = %s,
+            headline_status = 'DONE',
+            headline_error = NULL,
+            headline_updated_at = NOW()
+        WHERE id = %s
+        """,
+        (headline_text, post_id),
     )

@@ -7,6 +7,8 @@ RABBITMQ_HOST = os.getenv("RABBITMQ_HOST", "rabbitmq")
 
 QUEUE_RESIZE = os.getenv("RABBITMQ_QUEUE_RESIZE", "image_resize")
 QUEUE_TEXTGEN = os.getenv("RABBITMQ_QUEUE_TEXTGEN", "nlp_textgen")
+QUEUE_SENTIMENT = os.getenv("RABBITMQ_QUEUE_SENTIMENT", "nlp_sentiment")
+QUEUE_HEADLINE = os.getenv("RABBITMQ_QUEUE_HEADLINE", "nlp_headline")
 
 def _connect_with_retry():
     last = None
@@ -36,3 +38,9 @@ def publish_resize_job(post_id: int) -> None:
 
 def publish_textgen_job(post_id: int, retries_left: int = 3) -> None:
     _publish(QUEUE_TEXTGEN, {"post_id": post_id, "retries_left": retries_left})
+
+def publish_sentiment_job(post_id: int, retries_left: int = 3) -> None:
+    _publish(QUEUE_SENTIMENT, {"post_id": post_id, "retries_left": retries_left})
+
+def publish_headline_job(post_id: int, retries_left: int = 3) -> None:
+    _publish(QUEUE_HEADLINE, {"post_id": post_id, "retries_left": retries_left})
